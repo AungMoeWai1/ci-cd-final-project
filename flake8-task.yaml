@@ -1,0 +1,53 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: flake8
+  namespace: sn-labs-tkyawwai678
+  annotations:
+    tekton.dev/categories: Code Quality
+    tekton.dev/displayName: flake8
+    tekton.dev/pipelines.minVersion: "0.12.1"
+    tekton.dev/platforms: linux/amd64
+    tekton.dev/tags: python, flake8, linter
+  labels:
+    app.kubernetes.io/version: "0.1"
+spec:
+  description: This task will run flake8 on the provided input.
+  params:
+    - name: image
+      description: The container image with flake8
+      default: python:3.9-slim
+      type: string
+    - name: path
+      description: The path to the module which should be analysed by flake8
+      default: "."
+      type: string
+    - name: requirements_file
+      description: The name of the requirements file inside the source location
+      default: requirements.txt
+      type: string
+    - name: args
+      description: The arguments to pass to the flake8 CLI.
+      default: []
+      type: array
+  workspaces:
+    - name: source
+  steps:
+    - name: lint
+      image: $(params.image)
+      workingDir: $(workspaces.source.path)
+      args: ["$(params.args[*])"]
+      script: |
+        #!/usr/bin/env bash
+        set -e
+        
+        # 1. Upgrade pip
+        python -m pip install --upgrade pip
+        
+        # 2. Install dependencies
+        if [ -n "$(params.requirements_file)" ] && [ -e "$(params.requirements_file)" ]; then
+          python -m pip install -r $(params.requirements_file)
+        fi
+        
+        # 3. Run flake8, receive parameters via $@
+        flake8 "$@" $(params.path)
